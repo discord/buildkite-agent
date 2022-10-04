@@ -142,6 +142,7 @@ type AgentStartConfig struct {
 	MetricsDatadogDistributions bool   `cli:"metrics-datadog-distributions"`
 	TracingBackend              string `cli:"tracing-backend"`
 	TracingServiceName          string `cli:"tracing-service-name"`
+	UseJsonTraceContext         bool   `cli:"use-json-trace-context"`
 
 	// Global flags
 	Debug             bool     `cli:"debug"`
@@ -582,6 +583,11 @@ var AgentStartCommand = cli.Command{
 			EnvVar: "BUILDKITE_TRACING_SERVICE_NAME",
 			Value:  "buildkite-agent",
 		},
+		cli.BoolFlag{
+			Name:   "use-json-trace-context",
+			Usage:  "Uses base-64 JSON encoding when propagating traces through environment variables. When false, base64 golang-binary encoding will be used.",
+			EnvVar: "BUILDKITE_USE_JSON_TRACE_CONTEXT",
+		},
 		cli.StringFlag{
 			Name:   "job-verification-key-path",
 			Usage:  "Path to a file containing a verification key. Passing this flag enables job verification. For hmac-sha256, the raw file content is used as the shared key",
@@ -864,6 +870,7 @@ var AgentStartCommand = cli.Command{
 			AcquireJob:                              cfg.AcquireJob,
 			TracingBackend:                          cfg.TracingBackend,
 			TracingServiceName:                      cfg.TracingServiceName,
+			UseJsonTraceContext:                     cfg.UseJsonTraceContext,
 			JobVerificationNoSignatureBehavior:      cfg.JobVerificationNoSignatureBehavior,
 			JobVerificationInvalidSignatureBehavior: cfg.JobVerificationInvalidSignatureBehavior,
 

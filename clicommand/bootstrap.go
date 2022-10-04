@@ -94,6 +94,7 @@ type BootstrapConfig struct {
 	RedactedVars                 []string `cli:"redacted-vars" normalize:"list"`
 	TracingBackend               string   `cli:"tracing-backend"`
 	TracingServiceName           string   `cli:"tracing-service-name"`
+	UseJsonTraceContext          bool     `cli:"use-json-trace-context"`
 }
 
 var BootstrapCommand = cli.Command{
@@ -355,6 +356,11 @@ var BootstrapCommand = cli.Command{
 			EnvVar: "BUILDKITE_TRACING_SERVICE_NAME",
 			Value:  "buildkite-agent",
 		},
+		cli.BoolFlag{
+			Name:   "use-json-tracing-context",
+			Usage:  "Uses base-64 JSON encoding when propagating traces through environment variables. When false, base64 golang-binary encoding will be used.",
+			EnvVar: "BUILDKITE_USE_JSON_TRACING_CONTEXT",
+		},
 		DebugFlag,
 		LogLevelFlag,
 		ExperimentsFlag,
@@ -439,6 +445,7 @@ var BootstrapCommand = cli.Command{
 			Tag:                          cfg.Tag,
 			TracingBackend:               cfg.TracingBackend,
 			TracingServiceName:           cfg.TracingServiceName,
+			UseJsonTraceContext:          cfg.UseJsonTraceContext,
 		})
 
 		cctx, cancel := context.WithCancel(ctx)

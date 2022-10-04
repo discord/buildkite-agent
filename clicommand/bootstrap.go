@@ -95,6 +95,7 @@ type BootstrapConfig struct {
 	TracingBackend               string   `cli:"tracing-backend"`
 	TracingServiceName           string   `cli:"tracing-service-name"`
 	TraceLogGroups               bool     `cli:"trace-log-groups"`
+	UseJsonTraceContext          bool     `cli:"use-json-trace-context"`
 }
 
 var BootstrapCommand = cli.Command{
@@ -361,6 +362,11 @@ var BootstrapCommand = cli.Command{
 			Usage:  "Automatically creates tracing spans for log groups when tracing is enabled.",
 			EnvVar: "BUILDKITE_TRACE_LOG_GROUPS",
 		},
+		cli.BoolFlag{
+			Name:   "use-json-trace-context",
+			Usage:  "Uses base-64 JSON encoding when propagating traces through environment variables. When false, base64 golang-binary encoding will be used.",
+			EnvVar: "BUILDKITE_USE_JSON_TRACE_CONTEXT",
+		},
 		DebugFlag,
 		LogLevelFlag,
 		ExperimentsFlag,
@@ -446,6 +452,7 @@ var BootstrapCommand = cli.Command{
 			TracingBackend:               cfg.TracingBackend,
 			TracingServiceName:           cfg.TracingServiceName,
 			TraceLogGroups:               cfg.TraceLogGroups,
+			UseJsonTraceContext:          cfg.UseJsonTraceContext,
 		})
 
 		cctx, cancel := context.WithCancel(ctx)

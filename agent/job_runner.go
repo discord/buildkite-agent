@@ -526,6 +526,10 @@ func (r *JobRunner) createEnvironment() ([]string, error) {
 		env["BUILDKITE_TRACE_LOG_GROUPS"] = fmt.Sprintf("%t", r.conf.AgentConfiguration.TraceLogGroups)
 	}
 
+	if r.conf.AgentConfiguration.UseJsonTraceContext {
+		env["BUILDKITE_USE_JSON_TRACE_CONTEXT"] = "true"
+	}
+
 	// see documentation for BuildkiteMessageMax
 	if err := truncateEnv(r.logger, env, BuildkiteMessageName, BuildkiteMessageMax); err != nil {
 		r.logger.Warn("failed to truncate %s: %v", BuildkiteMessageName, err)

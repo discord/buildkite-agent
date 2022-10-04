@@ -58,4 +58,5 @@ type AgentConfiguration struct {
 	TracingBackend             string
 	TracingServiceName         string
 	TraceLogGroups             bool
+	UseJsonTraceContext        bool
 }

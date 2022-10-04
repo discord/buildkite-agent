@@ -143,6 +143,7 @@ type AgentStartConfig struct {
 	TracingBackend              string `cli:"tracing-backend"`
 	TracingServiceName          string `cli:"tracing-service-name"`
 	TraceLogGroups              bool   `cli:"trace-log-groups"`
+	UseJsonTraceContext         bool   `cli:"use-json-trace-context"`
 
 	// Global flags
 	Debug             bool     `cli:"debug"`
@@ -588,6 +589,11 @@ var AgentStartCommand = cli.Command{
 			Usage:  "Automatically creates tracing spans for log groups when tracing is enabled.",
 			EnvVar: "BUILDKITE_TRACE_LOG_GROUPS",
 		},
+		cli.BoolFlag{
+			Name:   "use-json-trace-context",
+			Usage:  "Uses base-64 JSON encoding when propagating traces through environment variables. When false, base64 golang-binary encoding will be used.",
+			EnvVar: "BUILDKITE_USE_JSON_TRACE_CONTEXT",
+		},
 		cli.StringFlag{
 			Name:   "job-verification-key-path",
 			Usage:  "Path to a file containing a verification key. Passing this flag enables job verification. For hmac-sha256, the raw file content is used as the shared key",
@@ -875,6 +881,7 @@ var AgentStartCommand = cli.Command{
 			TracingBackend:                          cfg.TracingBackend,
 			TracingServiceName:                      cfg.TracingServiceName,
 			TraceLogGroups:                          cfg.TraceLogGroups,
+			UseJsonTraceContext:                     cfg.UseJsonTraceContext,
 			JobVerificationNoSignatureBehavior:      cfg.JobVerificationNoSignatureBehavior,
 			JobVerificationInvalidSignatureBehavior: cfg.JobVerificationInvalidSignatureBehavior,
 

@@ -167,6 +167,9 @@ type ExecutorConfig struct {
 
 	// Whether to auto-create tracing spans for log groups.
 	TraceLogGroups bool
+
+	// When true, base64-JSON encoding is used for trace context propagation. Else, base64-golang-binary.
+	UseJsonTraceContext bool
 }
 
 // ReadFromEnvironment reads configuration from the Environment, returns a map

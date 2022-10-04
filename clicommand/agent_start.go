@@ -102,6 +102,7 @@ type AgentStartConfig struct {
 	MetricsDatadogDistributions bool     `cli:"metrics-datadog-distributions"`
 	TracingBackend              string   `cli:"tracing-backend"`
 	TracingServiceName          string   `cli:"tracing-service-name"`
+	UseJsonTraceContext         bool     `cli:"use-json-trace-context"`
 	Spawn                       int      `cli:"spawn"`
 	SpawnWithPriority           bool     `cli:"spawn-with-priority"`
 	LogFormat                   string   `cli:"log-format"`
@@ -517,6 +518,11 @@ var AgentStartCommand = cli.Command{
 			EnvVar: "BUILDKITE_TRACING_SERVICE_NAME",
 			Value:  "buildkite-agent",
 		},
+		cli.BoolFlag{
+			Name:   "use-json-trace-context",
+			Usage:  "Uses base-64 JSON encoding when propagating traces through environment variables. When false, base64 golang-binary encoding will be used.",
+			EnvVar: "BUILDKITE_USE_JSON_TRACE_CONTEXT",
+		},
 
 		// API Flags
 		AgentRegisterTokenFlag,
@@ -740,6 +746,7 @@ var AgentStartCommand = cli.Command{
 			AcquireJob:                 cfg.AcquireJob,
 			TracingBackend:             cfg.TracingBackend,
 			TracingServiceName:         cfg.TracingServiceName,
+			UseJsonTraceContext:        cfg.UseJsonTraceContext,
 		}
 
 		if loader.File != nil {

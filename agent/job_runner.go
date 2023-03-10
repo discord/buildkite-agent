@@ -54,6 +54,9 @@ type JobRunnerConfig struct {
 
 	// Whether to set debug HTTP Requests in the job
 	DebugHTTP bool
+
+	// Stdout of the parent agent process. Used for job log stdout writing arg, for simpler containerized log collection.
+	AgentStdout io.Writer
 }
 
 type JobRunner struct {
@@ -233,6 +236,10 @@ func NewJobRunner(l logger.Logger, scope *metrics.Scope, ag *api.AgentRegisterRe
 		}
 		os.Setenv("BUILDKITE_JOB_LOG_TMPFILE", tmpFile.Name())
 		allWriters = append(allWriters, tmpFile)
+	}
+
+	if conf.AgentConfiguration.WriteJobLogsToStdout {
+		allWriters = append(allWriters, conf.AgentStdout)
 	}
 
 	// The writer that output from the process goes into

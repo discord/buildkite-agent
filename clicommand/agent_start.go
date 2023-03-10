@@ -65,6 +65,7 @@ type AgentStartConfig struct {
 	BootstrapScript             string   `cli:"bootstrap-script" normalize:"commandpath"`
 	CancelGracePeriod           int      `cli:"cancel-grace-period"`
 	EnableJobLogTmpfile         bool     `cli:"enable-job-log-tmpfile"`
+	WriteJobLogsToStdout        bool     `cli:"write-job-logs-to-stdout"`
 	BuildPath                   string   `cli:"build-path" normalize:"filepath" validate:"required"`
 	HooksPath                   string   `cli:"hooks-path" normalize:"filepath"`
 	PluginsPath                 string   `cli:"plugins-path" normalize:"filepath"`
@@ -278,6 +279,11 @@ var AgentStartCommand = cli.Command{
 			Name:   "enable-job-log-tmpfile",
 			Usage:  "Store the job logs in a temporary file ′BUILDKITE_JOB_LOG_TMPFILE′ that is accessible during the job and removed at the end of the job",
 			EnvVar: "BUILDKITE_ENABLE_JOB_LOG_TMPFILE",
+		},
+		cli.BoolFlag{
+			Name:   "write-job-logs-to-stdout",
+			Usage:  "Writes job logs to the agent process' stdout. This simplifies log collection if running agents in Docker.",
+			EnvVar: "BUILDKITE_WRITE_JOB_LOGS_TO_STDOUT",
 		},
 		cli.StringFlag{
 			Name:   "shell",
@@ -741,6 +747,7 @@ var AgentStartCommand = cli.Command{
 			DisconnectAfterIdleTimeout: cfg.DisconnectAfterIdleTimeout,
 			CancelGracePeriod:          cfg.CancelGracePeriod,
 			EnableJobLogTmpfile:        cfg.EnableJobLogTmpfile,
+			WriteJobLogsToStdout:       cfg.WriteJobLogsToStdout,
 			Shell:                      cfg.Shell,
 			RedactedVars:               cfg.RedactedVars,
 			AcquireJob:                 cfg.AcquireJob,
@@ -890,6 +897,7 @@ var AgentStartCommand = cli.Command{
 						Debug:              cfg.Debug,
 						DebugHTTP:          cfg.DebugHTTP,
 						SpawnIndex:         i,
+						AgentStdout:        os.Stdout,
 					}))
 		}
 

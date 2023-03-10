@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"sync"
@@ -30,6 +31,9 @@ type AgentWorkerConfig struct {
 
 	// The configuration of the agent from the CLI
 	AgentConfiguration AgentConfiguration
+
+	// Stdout of the parent agent process. Used for job log stdout writing arg, for simpler containerized log collection.
+	AgentStdout io.Writer
 }
 
 type agentStats struct {
@@ -88,6 +92,9 @@ type AgentWorker struct {
 	// Hopefully this can be replaced with a global setting for tests in future:
 	// https://github.com/buildkite/roko/issues/2
 	retrySleepFunc func(time.Duration)
+
+	// Stdout of the parent agent process. Used for job log stdout writing arg, for simpler containerized log collection.
+	agentStdout io.Writer
 }
 
 // Creates the agent worker and initializes its API Client
@@ -104,6 +111,7 @@ func NewAgentWorker(l logger.Logger, a *api.AgentRegisterResponse, m *metrics.Co
 		cancelSig:          c.CancelSignal,
 		spawnIndex:         c.SpawnIndex,
 		retrySleepFunc:     time.Sleep, // https://github.com/buildkite/roko/issues/2
+		agentStdout:        c.AgentStdout,
 	}
 }
 
@@ -507,24 +515,22 @@ func (a *AgentWorker) RunJob(acceptResponse *api.Job) error {
 		`source`:   acceptResponse.Env[`BUILDKITE_SOURCE`],
 	})
 
-	defer func() {
-		// No more job, no more runner.
-		a.jobRunner = nil
-	}()
-
 	// Now that we've got a job to do, we can start it.
-	var err error
-	a.jobRunner, err = NewJobRunner(a.logger, jobMetricsScope, a.agent, acceptResponse, a.apiClient, JobRunnerConfig{
+	jr, err := NewJobRunner(a.logger, jobMetricsScope, a.agent, acceptResponse, a.apiClient, JobRunnerConfig{
 		Debug:              a.debug,
 		DebugHTTP:          a.debugHTTP,
 		CancelSignal:       a.cancelSig,
 		AgentConfiguration: a.agentConfiguration,
+		AgentStdout:        a.agentStdout,
 	})
-
-	// Was there an error creating the job runner?
 	if err != nil {
 		return fmt.Errorf("Failed to initialize job: %v", err)
 	}
+	a.jobRunner = jr
+	defer func() {
+		// No more job, no more runner.
+		a.jobRunner = nil
+	}()
 
 	// Start running the job
 	if err = a.jobRunner.Run(); err != nil {

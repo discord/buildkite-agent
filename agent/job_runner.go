@@ -179,13 +179,12 @@ func NewJobRunner(l logger.Logger, scope *metrics.Scope, ag *api.AgentRegisterRe
 	// Our log streamer works off a buffer of output
 	runner.output = &process.Buffer{}
 
-	// The writer that output from the process goes into
-	var processWriter io.Writer
-
 	pr, pw := io.Pipe()
 
 	// Additional steps needed to finish writing when the process is finished.
 	flush := func() error { return nil }
+
+	var allWriters = make([]io.Writer, 0)
 
 	switch {
 	case experiments.IsEnabled("ansi-timestamps"):
@@ -195,13 +194,13 @@ func NewJobRunner(l logger.Logger, scope *metrics.Scope, ag *api.AgentRegisterRe
 			return fmt.Sprintf("\x1b_bk;t=%d\x07",
 				time.Now().UnixNano()/int64(time.Millisecond))
 		})
-		processWriter = prefixer
+		allWriters = append(allWriters, prefixer)
 		flush = prefixer.Flush
 
 	case conf.AgentConfiguration.TimestampLines:
 		// If we have timestamp lines on, we have to buffer lines before we flush them
 		// because we need to know if the line is a header or not. It's a bummer.
-		processWriter = pw
+		allWriters = append(allWriters, pw)
 
 		go func() {
 			// Use a scanner to process output line by line
@@ -224,7 +223,7 @@ func NewJobRunner(l logger.Logger, scope *metrics.Scope, ag *api.AgentRegisterRe
 
 	default:
 		// Write output directly to the line buffer so we
-		processWriter = io.MultiWriter(pw, runner.output)
+		allWriters = append(allWriters, pw, runner.output)
 
 		// Use a scanner to process output for headers only
 		go func() {
@@ -246,8 +245,11 @@ func NewJobRunner(l logger.Logger, scope *metrics.Scope, ag *api.AgentRegisterRe
 			return nil, err
 		}
 		os.Setenv("BUILDKITE_JOB_LOG_TMPFILE", tmpFile.Name())
-		processWriter = io.MultiWriter(processWriter, tmpFile)
+		allWriters = append(allWriters, tmpFile)
 	}
+
+	// The writer that output from the process goes into
+	var processWriter = io.MultiWriter(allWriters...)
 
 	// Copy the current processes ENV and merge in the new ones. We do this
 	// so the sub process gets PATH and stuff. We merge our path in over

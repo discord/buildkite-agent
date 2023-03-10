@@ -68,6 +68,7 @@ type AgentStartConfig struct {
 	CancelGracePeriod           int      `cli:"cancel-grace-period"`
 	EnableJobLogTmpfile         bool     `cli:"enable-job-log-tmpfile"`
 	JobLogFilepath              string   `cli:"job-log-filepath"`
+	StructuredLogs              bool     `cli:"structured-logs"`
 	BuildPath                   string   `cli:"build-path" normalize:"filepath" validate:"required"`
 	HooksPath                   string   `cli:"hooks-path" normalize:"filepath"`
 	PluginsPath                 string   `cli:"plugins-path" normalize:"filepath"`
@@ -290,6 +291,11 @@ var AgentStartCommand = cli.Command{
 			Value:  "",
 			Usage:  "If given, job logs will be written to this file. Cannot be used with the temp job log.",
 			EnvVar: "BUILDKITE_JOB_LOG_FILEPATH",
+		},
+		cli.BoolFlag{
+			Name:   "structured-logs",
+			Usage:  "Write jobs' logs out in a structured format that includes metadata about the job. Requires `job-log-filepath`. Logs sent to Buildkite are not structured, to maintain human-readable output.",
+			EnvVar: "BUILDKITE_STRUCTURED_LOGS",
 		},
 		cli.StringFlag{
 			Name:   "shell",
@@ -760,6 +766,10 @@ var AgentStartCommand = cli.Command{
 			l.Fatal("Both temp job log file and job log filepath arguments cannot be given.")
 		}
 
+		if cfg.StructuredLogs && cfg.JobLogFilepath == "" {
+			l.Fatal("Structured log output doesn't make sense without the job log filepath setting.")
+		}
+
 		// AgentConfiguration is the runtime configuration for an agent
 		agentConf := agent.AgentConfiguration{
 			BootstrapScript:            cfg.BootstrapScript,
@@ -787,6 +797,7 @@ var AgentStartCommand = cli.Command{
 			CancelGracePeriod:          cfg.CancelGracePeriod,
 			EnableJobLogTmpfile:        cfg.EnableJobLogTmpfile,
 			JobLogFilepath:             cfg.JobLogFilepath,
+			StructuredLogs:             cfg.StructuredLogs,
 			Shell:                      cfg.Shell,
 			RedactedVars:               cfg.RedactedVars,
 			AcquireJob:                 cfg.AcquireJob,

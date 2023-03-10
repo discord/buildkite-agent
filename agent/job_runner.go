@@ -251,11 +251,23 @@ func NewJobRunner(l logger.Logger, scope *metrics.Scope, ag *api.AgentRegisterRe
 		os.Setenv("BUILDKITE_JOB_LOG_TMPFILE", tmpFile.Name())
 		allWriters = append(allWriters, tmpFile)
 	} else if conf.AgentConfiguration.JobLogFilepath != "" {
-		teeFile, err = os.OpenFile(conf.AgentConfiguration.JobLogFilepath, os.O_APPEND|os.O_RDWR, 0666)
+		teeFile, err = os.OpenFile(conf.AgentConfiguration.JobLogFilepath, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
 		if err != nil {
 			return nil, err
 		}
-		allWriters = append(allWriters, teeFile)
+
+		if conf.AgentConfiguration.StructuredLogs {
+			var structure = process.NewStructure(teeFile, map[string]string{
+				"org":      job.Env["BUILDKITE_ORGANIZATION_SLUG"],
+				"pipeline": job.Env["BUILDKITE_PIPELINE_SLUG"],
+				"branch":   job.Env["BUILDKITE_BRANCH"],
+				"queue":    job.Env["BUILDKITE_AGENT_META_DATA_QUEUE"],
+				"job_id":   job.ID,
+			})
+			allWriters = append(allWriters, structure)
+		} else {
+			allWriters = append(allWriters, teeFile)
+		}
 	}
 
 	// The writer that output from the process goes into

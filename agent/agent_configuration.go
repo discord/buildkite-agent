@@ -30,6 +30,7 @@ type AgentConfiguration struct {
 	CancelGracePeriod          int
 	EnableJobLogTmpfile        bool
 	JobLogFilepath             string
+	StructuredLogs             bool
 	Shell                      string
 	Profile                    string
 	RedactedVars               []string

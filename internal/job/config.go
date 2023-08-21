@@ -188,6 +188,9 @@ type ExecutorConfig struct {
 	// Accept traceparent context from Buildkite control plane
 	TracingPropagateTraceparent bool
 
+	// Whether to auto-create tracing spans for log groups.
+	TraceLogGroups bool
+
 	// Encoding (within base64) for the trace context environment variable.
 	TraceContextCodec tracetools.Codec
 

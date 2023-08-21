@@ -126,6 +126,7 @@ func (e *Executor) Run(ctx context.Context) (exitCode int) {
 			shell.WithStdout(preRedactedStdout), // shell -> redactor -> real stdout
 			shell.WithSignalGracePeriod(e.SignalGracePeriod),
 			shell.WithTraceContextCodec(e.TraceContextCodec),
+			shell.WithTraceLogGroups(e.TraceLogGroups),
 		)
 		if err != nil {
 			fmt.Printf("Error creating shell: %v", err)

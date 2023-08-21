@@ -193,6 +193,7 @@ type AgentStartConfig struct {
 	TracingBackend              string `cli:"tracing-backend"`
 	TracingServiceName          string `cli:"tracing-service-name"`
 	TracingPropagateTraceparent bool   `cli:"tracing-propagate-traceparent"`
+	TraceLogGroups              bool   `cli:"trace-log-groups"`
 
 	// Other shared flags
 	StrictSingleHooks         bool   `cli:"strict-single-hooks"`
@@ -683,6 +684,11 @@ var AgentStartCommand = cli.Command{
 			EnvVar: "BUILDKITE_TRACING_SERVICE_NAME",
 			Value:  "buildkite-agent",
 		},
+		cli.BoolFlag{
+			Name:   "trace-log-groups",
+			Usage:  "Automatically creates tracing spans for log groups when tracing is enabled.",
+			EnvVar: "BUILDKITE_TRACE_LOG_GROUPS",
+		},
 		cli.StringFlag{
 			Name:   "verification-jwks-file",
 			Usage:  "Path to a file containing a JSON Web Key Set (JWKS), used to verify job signatures. ",
@@ -943,12 +949,16 @@ var AgentStartCommand = cli.Command{
 		})
 
 		// Sense check supported tracing backends, we don't want bootstrapped jobs to silently have no tracing
-		if _, has := tracetools.ValidTracingBackends[cfg.TracingBackend]; !has {
+		_, tracingEnabled := tracetools.ValidTracingBackends[cfg.TracingBackend]
+		if !tracingEnabled {
 			return fmt.Errorf(
 				"the given tracing backend %q is not supported. Valid backends are: %q",
 				cfg.TracingBackend,
 				slices.Collect(maps.Keys(tracetools.ValidTracingBackends)),
 			)
+		}
+		if !tracingEnabled && cfg.TraceLogGroups {
+			return fmt.Errorf("log group tracing cannot be enabled without a tracing backend")
 		}
 
 		if experiments.IsEnabled(ctx, experiments.AgentAPI) {
@@ -1076,6 +1086,7 @@ var AgentStartCommand = cli.Command{
 			TracingBackend:               cfg.TracingBackend,
 			TracingServiceName:           cfg.TracingServiceName,
 			TracingPropagateTraceparent:  cfg.TracingPropagateTraceparent,
+			TraceLogGroups:               cfg.TraceLogGroups,
 			TraceContextEncoding:         cfg.TraceContextEncoding,
 			AllowMultipartArtifactUpload: !cfg.NoMultipartArtifactUpload,
 			KubernetesExec:               cfg.KubernetesExec,

@@ -108,6 +108,7 @@ type BootstrapConfig struct {
 	TracingServiceName           string   `cli:"tracing-service-name"`
 	TracingTraceParent           string   `cli:"tracing-traceparent"`
 	TracingPropagateTraceparent  bool     `cli:"tracing-propagate-traceparent"`
+	TraceLogGroups               bool     `cli:"trace-log-groups"`
 	TraceContextEncoding         string   `cli:"trace-context-encoding"`
 	NoJobAPI                     bool     `cli:"no-job-api"`
 	DisableWarningsFor           []string `cli:"disable-warnings-for" normalize:"list"`
@@ -334,6 +335,11 @@ var BootstrapCommand = cli.Command{
 			Usage:  "Accept traceparent from Buildkite control plane (default: false)",
 			EnvVar: "BUILDKITE_TRACING_PROPAGATE_TRACEPARENT",
 		},
+		cli.BoolFlag{
+			Name:   "trace-log-groups",
+			Usage:  "Automatically creates tracing spans for log groups when tracing is enabled.",
+			EnvVar: "BUILDKITE_TRACE_LOG_GROUPS",
+		},
 
 		cli.BoolFlag{
 			Name:   "no-job-api",
@@ -467,6 +473,7 @@ var BootstrapCommand = cli.Command{
 			TraceContextCodec:            traceContextCodec,
 			TracingTraceParent:           cfg.TracingTraceParent,
 			TracingPropagateTraceparent:  cfg.TracingPropagateTraceparent,
+			TraceLogGroups:               cfg.TraceLogGroups,
 			JobAPI:                       !cfg.NoJobAPI,
 			DisabledWarnings:             cfg.DisableWarningsFor,
 			Secrets:                      cfg.Secrets,

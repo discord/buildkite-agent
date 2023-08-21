@@ -5,6 +5,7 @@
 package shell
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -84,6 +85,9 @@ type Shell struct {
 	// How to encode trace contexts.
 	traceContextCodec tracetools.Codec
 
+	// Whether to auto create tracing spans for log groups
+	traceLogGroups bool
+
 	// Current working directory that shell commands get executed in
 	wd string
 }
@@ -109,6 +113,10 @@ func WithSignalGracePeriod(d time.Duration) NewShellOpt {
 
 func WithTraceContextCodec(c tracetools.Codec) NewShellOpt {
 	return func(s *Shell) { s.traceContextCodec = c }
+}
+
+func WithTraceLogGroups(t bool) NewShellOpt {
+	return func(s *Shell) { s.traceLogGroups = t }
 }
 
 // New returns a new Shell. The default stdout is [os.Stdout], the default logger
@@ -550,6 +558,32 @@ func (s *Shell) buildCommand(name string, arg ...string) (process.Config, error)
 	}, nil
 }
 
+// spanMakerWriter is an io.Writer shim that captures logs and automatically creates trace spans for the log group.
+type spanMakerWriter struct {
+	w    io.Writer
+	ctx  context.Context
+	span opentracing.Span
+}
+
+func (s *spanMakerWriter) Write(p []byte) (n int, err error) {
+	if bytes.HasPrefix(p, []byte("~~~ ")) || bytes.HasPrefix(p, []byte("--- ")) || bytes.HasPrefix(p, []byte("+++ ")) {
+		s.FinishIfActive()
+		operationName, _, _ := strings.Cut(string(p[4:]), "\r\n")
+		// We don't store the context bc we don't need to create child spans (yet). If we stored it, every log group would
+		// look like a child of the previous log group, where they're all more like siblings under the same parent span,
+		// since Buildkite itself has no concept of log group hierarchy.
+		s.span, _ = opentracing.StartSpanFromContext(s.ctx, operationName)
+	}
+	return s.w.Write(p)
+}
+
+func (s *spanMakerWriter) FinishIfActive() {
+	if s.span != nil {
+		s.span.Finish()
+		s.span = nil
+	}
+}
+
 // executeCommand executes a command.
 //
 // To ignore an output stream, you can use either nil or io.Discard:
@@ -571,6 +605,19 @@ func (s *Shell) executeCommand(ctx context.Context, cmdCfg process.Config, stdou
 		defer func() {
 			s.Commentf("↳ Command completed in %v", round(time.Since(t)))
 		}()
+	}
+
+	if s.traceLogGroups {
+		if stdout != nil {
+			logToSpanWriter := &spanMakerWriter{w: stdout, ctx: ctx}
+			stdout = logToSpanWriter
+			defer logToSpanWriter.FinishIfActive()
+		}
+		if stderr != nil {
+			logToSpanWriter := &spanMakerWriter{w: stderr, ctx: ctx}
+			stderr = logToSpanWriter
+			defer logToSpanWriter.FinishIfActive()
+		}
 	}
 
 	cmdCfg.PTY = pty

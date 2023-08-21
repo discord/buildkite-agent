@@ -69,6 +69,7 @@ type AgentConfiguration struct {
 	TracingBackend               string
 	TracingServiceName           string
 	TracingPropagateTraceparent  bool
+	TraceLogGroups               bool
 	TraceContextEncoding         string
 	DisableWarningsFor           []string
 	AllowMultipartArtifactUpload bool

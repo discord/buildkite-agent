@@ -76,6 +76,9 @@ type Shell struct {
 	// Whether to use a base-64 JSON encoding when propagating trace contexts.
 	// If false, uses gob (golang-binary).
 	UseJsonTraceContext bool
+
+	// Whether to auto create tracing spans for log groups
+	TraceLogGroups bool
 }
 
 // New returns a new Shell
@@ -536,6 +539,32 @@ func round(d time.Duration) time.Duration {
 	}
 }
 
+// spanMakerWriter is an io.Writer shim that captures logs and automatically creates trace spans for the log group.
+type spanMakerWriter struct {
+	w    io.Writer
+	ctx  context.Context
+	span opentracing.Span
+}
+
+func (s *spanMakerWriter) Write(p []byte) (n int, err error) {
+	if bytes.HasPrefix(p, []byte("~~~ ")) || bytes.HasPrefix(p, []byte("--- ")) || bytes.HasPrefix(p, []byte("+++ ")) {
+		s.FinishIfActive()
+		operationName, _, _ := strings.Cut(string(p[4:]), "\r\n")
+		// We don't store the context bc we don't need to create child spans (yet). If we stored it, every log group would
+		// look like a child of the previous log group, where they're all more like siblings under the same parent span,
+		// since Buildkite itself has no concept of log group hierarchy.
+		s.span, _ = opentracing.StartSpanFromContext(s.ctx, operationName)
+	}
+	return s.w.Write(p)
+}
+
+func (s *spanMakerWriter) FinishIfActive() {
+	if s.span != nil {
+		s.span.Finish()
+		s.span = nil
+	}
+}
+
 func (s *Shell) executeCommand(
 	ctx context.Context,
 	cmd *command,
@@ -546,6 +575,14 @@ func (s *Shell) executeCommand(
 	tracedEnv := env.FromSlice(cmd.Env)
 	s.injectTraceCtx(ctx, tracedEnv)
 	cmd.Env = tracedEnv.ToSlice()
+	writer := w
+	writerCloser := func() {}
+	if s.TraceLogGroups {
+		logToSpanWriter := &spanMakerWriter{w: w, ctx: ctx, span: nil}
+		writer = logToSpanWriter
+		writerCloser = func() { logToSpanWriter.FinishIfActive() }
+	}
+	defer writerCloser()
 
 	s.cmdLock.Lock()
 	s.cmd = cmd
@@ -565,11 +602,11 @@ func (s *Shell) executeCommand(
 	// Modify process config based on execution flags
 	if flags.PTY {
 		cfg.PTY = true
-		cfg.Stdout = w
+		cfg.Stdout = writer
 	} else {
 		// Show stdout if requested or via debug
 		if flags.Stdout {
-			cfg.Stdout = w
+			cfg.Stdout = writer
 		} else if s.Debug {
 			stdOutStreamer := NewLoggerStreamer(s.Logger)
 			defer stdOutStreamer.Close()
@@ -578,7 +615,7 @@ func (s *Shell) executeCommand(
 
 		// Show stderr if requested or via debug
 		if flags.Stderr {
-			cfg.Stderr = w
+			cfg.Stderr = writer
 		} else if s.Debug {
 			stdErrStreamer := NewLoggerStreamer(s.Logger)
 			defer stdErrStreamer.Close()

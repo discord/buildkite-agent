@@ -143,6 +143,7 @@ type AgentStartConfig struct {
 	TracingBackend              string `cli:"tracing-backend"`
 	TracingServiceName          string `cli:"tracing-service-name"`
 	UseJsonTraceContext         bool   `cli:"use-json-trace-context"`
+	TraceLogGroups              bool   `cli:"trace-log-groups"`
 
 	// Global flags
 	Debug             bool     `cli:"debug"`
@@ -588,6 +589,11 @@ var AgentStartCommand = cli.Command{
 			Usage:  "Uses base-64 JSON encoding when propagating traces through environment variables. When false, base64 golang-binary encoding will be used.",
 			EnvVar: "BUILDKITE_USE_JSON_TRACE_CONTEXT",
 		},
+		cli.BoolFlag{
+			Name:   "trace-log-groups",
+			Usage:  "Automatically creates tracing spans for log groups when tracing is enabled.",
+			EnvVar: "BUILDKITE_TRACE_LOG_GROUPS",
+		},
 		cli.StringFlag{
 			Name:   "job-verification-key-path",
 			Usage:  "Path to a file containing a verification key. Passing this flag enables job verification. For hmac-sha256, the raw file content is used as the shared key",
@@ -806,8 +812,12 @@ var AgentStartCommand = cli.Command{
 		})
 
 		// Sense check supported tracing backends, we don't want bootstrapped jobs to silently have no tracing
-		if _, has := tracetools.ValidTracingBackends[cfg.TracingBackend]; !has {
+		_, tracingEnabled := tracetools.ValidTracingBackends[cfg.TracingBackend]
+		if !tracingEnabled {
 			l.Fatal("The given tracing backend %q is not supported. Valid backends are: %q", cfg.TracingBackend, maps.Keys(tracetools.ValidTracingBackends))
+		}
+		if !tracingEnabled && cfg.TraceLogGroups {
+			l.Fatal("Log group tracing cannot be enabled without a tracing backend.")
 		}
 
 		if experiments.IsEnabled(experiments.AgentAPI) {
@@ -871,6 +881,7 @@ var AgentStartCommand = cli.Command{
 			TracingBackend:                          cfg.TracingBackend,
 			TracingServiceName:                      cfg.TracingServiceName,
 			UseJsonTraceContext:                     cfg.UseJsonTraceContext,
+			TraceLogGroups:                          cfg.TraceLogGroups,
 			JobVerificationNoSignatureBehavior:      cfg.JobVerificationNoSignatureBehavior,
 			JobVerificationInvalidSignatureBehavior: cfg.JobVerificationInvalidSignatureBehavior,
 

@@ -83,6 +83,7 @@ func (e *Executor) Run(ctx context.Context) (exitCode int) {
 		e.shell.InterruptSignal = e.ExecutorConfig.CancelSignal
 		e.shell.SignalGracePeriod = e.ExecutorConfig.SignalGracePeriod
 		e.shell.UseJsonTraceContext = e.ExecutorConfig.UseJsonTraceContext
+		e.shell.TraceLogGroups = e.ExecutorConfig.TraceLogGroups
 	}
 	if experiments.IsEnabled(experiments.KubernetesExec) {
 		kubernetesClient := &kubernetes.Client{}
